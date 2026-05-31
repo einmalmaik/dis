@@ -1,0 +1,19 @@
+# gitleaks configuration for DIS — Defensive Integration Shield.
+#
+# Extends the upstream default ruleset and adds a narrowly-scoped allowlist for
+# synthetic cryptographic TEST VECTORS. These fixtures contain ephemeral keys
+# (e.g. ML-KEM-768 / RSA private keys) generated solely to prove byte-for-byte
+# decryption compatibility. They are NOT real secrets and correspond to no
+# account or stored data. The allowlist is scoped to dedicated fixture paths so
+# real secrets committed elsewhere are still caught.
+
+title = "DIS gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic crypto test vectors (not real secrets)"
+paths = [
+  '''src/post-quantum/__fixtures__/.*''',
+]
