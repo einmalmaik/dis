@@ -76,6 +76,7 @@ import { deriveRawKey } from '@dis/shield/kdf';
 | `@dis/shield/vault-encryption` | Vault-entry sealing (entry-id AAD binding) |
 | `@dis/shield/file-encryption` | Chunked attachment encryption + manifests |
 | `@dis/shield/key-management` | Content-key wrap / unwrap / rotation |
+| `@dis/shield/post-quantum` | ML-KEM-768 + RSA-4096 hybrid key wrapping (sharing / emergency access) |
 | `@dis/shield/integrity` | SHA-256, constant-time compare, verification |
 | `@dis/shield/migrations` | Ordered, explicit payload migrations |
 

@@ -20,7 +20,7 @@ time and are a baseline, not a guarantee.
 | `src/services/cryptoService.ts` | 1741 | KDF, AES-GCM, vault-item envelope, verification hash, user-key wrap, RSA, shared-key | `kdf`, `aead`, `vault-encryption`, `key-management`, `format-versioning` |
 | `src/services/keyMaterialService.ts` | 459 | Ensure/derive RSA + PQ key material | app orchestration over `key-management` (stays in app) |
 | `src/services/secureBuffer.ts` | 301 | Memory-safe key handling | `secure-memory` |
-| `src/services/pqCryptoService.ts` | 752 | ML-KEM-768 + RSA hybrid encrypt/wrap | `key-management` (PQ hybrid submodule — phase 2) |
+| `src/services/pqCryptoService.ts` | 752 | ML-KEM-768 + RSA hybrid encrypt/wrap | `post-quantum` (ported — version bytes 0x01–0x04, HKDF v1/v2 preserved) |
 | `src/services/deviceKeyService.ts` | — | Device-key gen + HKDF strengthening | `kdf` (HKDF strengthen) + app policy |
 | `src/services/vaultIntegrityV2/*` | — | Item envelopes, manifests | `vault-encryption`, `integrity` |
 

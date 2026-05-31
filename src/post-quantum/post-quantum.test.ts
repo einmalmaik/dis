@@ -1,0 +1,70 @@
+/**
+ * Post-quantum hybrid key wrapping (ML-KEM-768 + RSA-4096) — round-trip,
+ * negative, and legacy golden-vector tests.
+ *
+ * The GOLDEN VECTOR below was produced by the legacy Singra pqCryptoService
+ * (version byte 0x04, HKDF-v2). It proves DIS decrypts already-stored hybrid
+ * sharing/emergency-key ciphertext byte-for-byte. A failure here means the
+ * apps can no longer read shared-collection / emergency-access keys.
+ */
+import { describe, expect, it } from "vitest";
+import {
+    generateHybridKeyPair,
+    hybridEncrypt,
+    hybridDecrypt,
+    hybridWrapKey,
+    hybridUnwrapKey,
+    isHybridEncrypted,
+    isCurrentStandardEncrypted,
+    buildSharedKeyWrapAad,
+} from "../index.js";
+
+const LEGACY = {
+    plaintext: "{\"k\":\"shared-collection-key\",\"v\":1}",
+    aad: "sv:shared-key:v1:col-1:sender-1:recipient-1:1",
+    ciphertext: "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",
+    pqSecretKey: "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",
+    rsaPrivateKey: "{\"key_ops\":[\"decrypt\"],\"ext\":true,\"kty\":\"RSA\",\"n\":\"wdbfXaiM1JkK30QBknf6szPK10ym_yv_AnuyMJHaobMKboN7EBEpbA1qAiKP64tmrfWZK9Hv0dYD0xGK5tjgCZGNlgTYlLZjQC_eSWlvrPGgAKQiuveQFBL4kR3CGK1nnBaAGDvQJJYHQOIa6FUoE8UjZ5v_T1VSimBWSQyXI2YJXjgTRUHpeteCc1GpND4p77iNQMdnUeEebKApnGEslXr_SYhG2ewddSGWxW-7dOgz4bp20FfD-a3-uAOYduLFixSAHplcbOU-O6vTFslTY9wA7u95BCesRN0JSmZsSnFF5MGtqByqUXwjivNd6Zqjl308F2lozfmtrwMgdLMvU9P7QkIerqSpxLsUaIwOWtz_hHmydLx3ZYtXkJUmV2LLD51Y_eM-skYM6QYuAW0UjT0OMw67HFycG-MlSquHu42BZYJfsGWmHdWvMSlO4Coo6iWnRG1wgWSDnY1YYOKS1xm_UTeszciZMGpzuxlFxM_A9ibx24Bjxy1Y2C32uxpLCuHfljZC-vZa3PZ_hfNH4x-A47IRgQA5ioKmNVGpLjmXfnGDC10qTqRWWiWs-pWhpsHD4mBlHxhwySevYXAsNjjg1gXLUQ-yGK7WpX09zHTMuUbEq2Y_f5A6TaUQntzrfny9VMoGl_7UAmnHKbCVQnBH07rR1CCsqgReRNV-Pf8\",\"e\":\"AQAB\",\"d\":\"DOLAh99ejVDR3N8OeQgqIvjnG8I9ZRUtp01FyTNzpJrcWgBk5pUy0GYL4rHIKNEO4F2ancPKUi63Tl601yfFAkh_cGDzbN9ltayjoEm2t3kl48-wJ1xcYu6SlkMI1iR2O3VwyoD0ve84nY2VBauI4II9xPN6g3GZQm2pDsNxgKmV0defIFQuCzvXBjIq3Lg33XcX8h3PYS1lR7SrT3lTl2micubw9CeyxZ3tV0QC4tX_gkVSWgNGRIuBNVu31PS6S8aZxcRNf_JgCA4iGDpbUCDInG7699W9_qNFrNZ7jcSoms5tQZG2Q3h3JxOKmK7uVRxpfueY-f2xGBijHbQ-XxHlkmFVtffsNQJC-5fWOi4i6SCJhNKqx2jAGYqx3E7fAFgpEBE3iSDKXos5McAp5aHUXr7VDCNh9W88s_NNqsQsV2L9NoS4cDvBi7om6ubEHemN_fc5aWoAEpkpg0IZFafN_r-uKNfqarBNDFb1Pn2OcHVjyFnRv6cHyDfldOtuSe8-KiUxLEZsQ6zdX5VM-HP7zceUTwhmotLg49fOW78_tLUlXs3dl4J3hygyxKTw-sFa4hBYlhYl4OQSV1hWnze0M85CKql0t0mBC4E1sJX6md4JBlEULQm_ygt6gLmJJ2KZExLu6bP4BRVRJoStu0-WYNVYK-DFgEdrqqlWcFE\",\"p\":\"7HuG5sWR5YypVzuvPXraF-DRkn2Dwweid8jIZ3kaoq4zd_o3ZFNfv3aA40QTKSbS7Wzji0SaM8w3WIbG_WI856LtgibSPMFYJO31WCoduyGlc61orcOywpWsPLB99QQaysssoRwSev75GNGLgb39afkar-p8tXjZ59u2w2RWkT2QQhqlTWd2On3ubgLIWjlbbjgnCGM4WqQ7XSt6h0RFr07yEawG6B0okWf0BI4KDGtcx7OMsQh3qtXgIZoV8950UpT0AO-iIFYtlf0-kVd3B0EN3a-B05-3dYJHFLoz_VrA2il8BCrAuFzW8uGh5NSVMFRuRThJ1-F-FhexhxTIsw\",\"q\":\"0dZeJgcBith_kZoX-xGGE4VMfxWZzU-snkzz95LkkREJUsSnGenkT54BpI4M5dCiPD0wJKK3uUdnHY01SxlEuC0nxfmNi1HusaEuR9dUX87vlxG-TAgfZ28kNRw1IyCD7KX1ezU69zqOwGSbPaa4JrITaj52tkRuOX7l-DQr1oun0aGueDvqxA7LSfGRwxjE02OpxzZqX3FQn9XsOd7h3VMWr43D-6sEJWZA2iR97k1hTf69nnCbb-EWbdIvecJnT5cWA7lGIN85WmgNbw-2jxY8ZOC6MiZMFbv-iX06BX4eSob6WCJQ76I8-ZD20vwupCzg6XSlJCne-opNSHijhQ\",\"dp\":\"3OXec36l9AjavhOQdBtn0do9qVr5U5q0FrRFDvK_AKs8hJwEVgDTdaOabbBPPad4bDPEsXjZmfzuzhDHnDTBs5YryeG9jOcGESj-fuaIcx7Q0Cdxmq8tMjphcydh4Rd-d2QmQjBYyu-Ve6txZzYzm2QHm7-r0lAbLEu-gvIdMvqQ4E7HjnBQrf6oU7bhs_XUBDcLrvgP0guLMFLG18fcWA-kawGIShXCqWCzPfX4SPWY6yo7B7tjHP8_p-OpEe4ANovRCXbOuOoHFw5B_b33_5yy-RtSaH3O_0M8Zo4wtj6p2p_ZqoLNFuoSFzrQ4VH6MfUMNDiKMc_-2WA0gnvVpQ\",\"dq\":\"AWVfsvkQ9Y-DKcDQsAbp0W9tltrZ7xe8mkEAzoDXrG9klHxicDWyIyV19VZMl6rPqX7utw-uETl8YiHyXNGKN391aEfEvUyKPfxIhonUMd76kRK5JWBYdSO0JfZOFDG_Lu_btjogbkyhbn482iglyXwdzPMlbwj9grxpY0FVmVPMhgSBWKNtaGiAybklsxqTFKTxGDYwdvoWAzo1HB1zezl2SSy0RRRaLrWDcPAVNmSlZRNwx4EQR6pDr-9aCYFVlp32s4ekA8v4YbWXgUmleUY4mKM2GedPUkWx59BBdo_kO7KyL6vqxe1aYn6oZbbvyH_T7zmrb5YnuZr58KV80Q\",\"qi\":\"Yw4hu6nUMTuVGCapq_ztatzvax7hi_BXtVugFARkt-BxwJkRkhrXfwVJp3wBfYLZARDpn3DZO3a6LInhmZRWsk6emD9Gdx6pRosiArrBSthWy1x9nWdD7l22S1stQbRz2fP-TcHzuzKtO5tf0qqKW4gkc7I8y10xIalaM-aLwAeHh7GAOoKh6sVO8UtGMsze-_hYOLL_bK643HRQVEJ-VbiTao1zib744KDXCfFJJwfrqZKUxMrMtHuME8AJ2m8oDIBOvDYD_pjy1cEJBJ4gksTA5gbJOOXAaETcpjrrN1aXGNkApyKId6Z6FXhhEv_UpCyqwKoGVEJF6njAp0UAFA\",\"alg\":\"RSA-OAEP-256\"}",
+};
+
+describe("post-quantum hybrid", () => {
+    it("round-trips hybridEncrypt -> hybridDecrypt with AAD", async () => {
+        const kp = await generateHybridKeyPair();
+        const aad = buildSharedKeyWrapAad({
+            collectionId: "c1",
+            senderUserId: "s1",
+            recipientUserId: "r1",
+            keyVersion: 1,
+        });
+        const ct = await hybridWrapKey("super-secret-shared-key", kp.pqPublicKey, kp.rsaPublicKey, aad);
+        expect(isHybridEncrypted(ct)).toBe(true);
+        expect(isCurrentStandardEncrypted(ct)).toBe(true);
+        expect(await hybridUnwrapKey(ct, kp.pqSecretKey, kp.rsaPrivateKey, aad)).toBe("super-secret-shared-key");
+    });
+
+    it("fails closed on wrong AAD", async () => {
+        const kp = await generateHybridKeyPair();
+        const ct = await hybridEncrypt("x", kp.pqPublicKey, kp.rsaPublicKey, "aad-A");
+        await expect(hybridDecrypt(ct, kp.pqSecretKey, kp.rsaPrivateKey, "aad-B")).rejects.toThrow();
+    });
+
+    it("fails closed on tampered ciphertext", async () => {
+        const kp = await generateHybridKeyPair();
+        const ct = await hybridEncrypt("x", kp.pqPublicKey, kp.rsaPublicKey, "aad");
+        const raw = Uint8Array.from(Buffer.from(ct, "base64"));
+        raw[raw.length - 1] ^= 0xff;
+        const tampered = Buffer.from(raw).toString("base64");
+        await expect(hybridDecrypt(tampered, kp.pqSecretKey, kp.rsaPrivateKey, "aad")).rejects.toThrow();
+    });
+
+    it("GOLDEN: DIS decrypts a legacy-produced v0x04 hybrid ciphertext", async () => {
+        expect(isCurrentStandardEncrypted(LEGACY.ciphertext)).toBe(true);
+        const out = await hybridDecrypt(
+            LEGACY.ciphertext,
+            LEGACY.pqSecretKey,
+            LEGACY.rsaPrivateKey,
+            LEGACY.aad,
+        );
+        expect(out).toBe(LEGACY.plaintext);
+    });
+});

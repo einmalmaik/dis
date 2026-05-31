@@ -57,6 +57,10 @@
       "types": "./dist/key-management/index.d.ts",
       "import": "./dist/key-management/index.js"
     },
+    "./post-quantum": {
+      "types": "./dist/post-quantum/index.d.ts",
+      "import": "./dist/post-quantum/index.js"
+    },
     "./integrity": {
       "types": "./dist/integrity/index.d.ts",
       "import": "./dist/integrity/index.js"

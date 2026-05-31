@@ -64,6 +64,26 @@ export {
     type KeyWrapScheme,
 } from './key-management/index.js';
 
+// Post-quantum hybrid key wrapping (ML-KEM-768 + RSA-4096) for sharing /
+// emergency-access keys. Optional: requires the `@noble/post-quantum` peer.
+export {
+    generatePQKeyPair,
+    generateHybridKeyPair,
+    hybridEncrypt,
+    hybridDecrypt,
+    hybridWrapKey,
+    hybridUnwrapKey,
+    isHybridEncrypted,
+    isCurrentStandardEncrypted,
+    migrateToHybrid,
+    buildSharedKeyWrapAad,
+    HYBRID_VERSION,
+    SECURITY_STANDARD_VERSION,
+    type PQKeyPair,
+    type HybridKeyPair,
+    type SharedKeyWrapAadInput,
+} from './post-quantum/index.js';
+
 // Integrity
 export {
     verifyPayloadIntegrity,

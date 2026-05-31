@@ -17,6 +17,7 @@ export default defineConfig({
         'vault-encryption/index': 'src/vault-encryption/index.ts',
         'file-encryption/index': 'src/file-encryption/index.ts',
         'key-management/index': 'src/key-management/index.ts',
+        'post-quantum/index': 'src/post-quantum/index.ts',
         'integrity/index': 'src/integrity/index.ts',
         'migrations/index': 'src/migrations/index.ts',
     },
