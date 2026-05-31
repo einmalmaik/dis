@@ -1,0 +1,52 @@
+# Contributing to DIS
+
+DIS — Defensive Integration Shield is the central cryptographic layer for Singra
+Vault, Singra Premium, and future projects. Crypto code carries unusual risk, so
+contributions follow strict rules.
+
+## Contributor License Agreement (CLA)
+
+By submitting a contribution you agree that:
+
+1. You have the right to submit the work.
+2. You license your contribution under the project license
+   ([PolyForm Noncommercial 1.0.0](LICENSE)), **and** you grant the maintainer a
+   perpetual, irrevocable right to relicense your contribution, including under
+   commercial terms.
+
+This preserves the project's ability to offer commercial licenses. PRs cannot be
+merged without CLA agreement.
+
+## Hard rules (non-negotiable)
+
+- **No invented cryptography.** Only audited primitives (`hash-wasm`, WebCrypto,
+  `@noble/post-quantum`). New crypto dependencies require explicit review per the
+  dependency policy.
+- **AEAD only**, unique nonce per call, AAD where context matters, strong KDFs,
+  key separation, key wrapping, secure randomness.
+- **Never** static salts, password-as-key, unauthenticated CBC, global mutable
+  crypto state, secrets in logs, debug bypasses, or hidden fallbacks.
+- **Formats are append-only.** Never edit an existing versioned format; add a new
+  version. Persisted-format constants are frozen.
+- **Every change ships with tests** — including negative tests (wrong key,
+  tampered data, AAD mismatch, downgrade) and, for formats, test vectors.
+
+## Workflow
+
+1. Branch from `main` (never commit to `main`/`master` directly).
+2. `npm install`
+3. Make the change with focused commits.
+4. Run the full gate locally:
+   ```bash
+   npm run lint
+   npm run typecheck
+   npm test
+   npm run build
+   ```
+5. Open a PR. CI must be green. Security-relevant changes need maintainer review.
+
+## Definition of done
+
+A change is done only when invariants are tested and runtime-critical paths are
+exercised — a green typecheck or build alone is **not** sufficient. Unrun checks
+must be stated honestly in the PR.
