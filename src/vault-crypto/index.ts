@@ -39,9 +39,10 @@ import {
     decryptVaultEntry,
     decryptVaultEntryForMigration,
     encryptVaultEntry,
-    isCurrentVaultEntryEnvelope,
+    VAULT_ITEM_ENVELOPE_SPEC,
     VAULT_ITEM_ENVELOPE_V1_PREFIX as DIS_VAULT_ITEM_ENVELOPE_V1_PREFIX,
 } from '../vault-encryption/index.js';
+import { parseEnvelope } from '../format-versioning/index.js';
 import {
     createDeterministicWrappedUserKey,
     createWrappedUserKey,
@@ -237,6 +238,7 @@ export async function decryptVaultItem(
     if (options.allowLegacyNoAadFallback) {
         const result = await decryptVaultEntryForMigration(encryptedData, key, entryId);
         if (result.legacyNoAadFallbackUsed) {
+            console.warn(`Legacy entry without AAD detected: ${entryId}`);
             _legacyDecryptCount++;
         }
         return result.data as VaultItemData;
@@ -261,6 +263,7 @@ export async function decryptVaultItemForMigration(
 ): Promise<VaultItemMigrationDecryptResult> {
     const result = await decryptVaultEntryForMigration(encryptedData, key, entryId);
     if (result.legacyNoAadFallbackUsed) {
+        console.warn(`Legacy entry without AAD detected: ${entryId}`);
         _legacyDecryptCount++;
     }
     return {
@@ -270,9 +273,16 @@ export async function decryptVaultItemForMigration(
     };
 }
 
-/** True if `encryptedData` is a current versioned vault-item envelope. */
+/**
+ * True if `encryptedData` is a current versioned vault-item envelope.
+ *
+ * Fails closed (throws) on an unknown in-family version (`sv-vault-v<n>:`) so a
+ * future format can never be silently treated as legacy by migration code —
+ * matching the Singra contract. Callers that need a non-throwing predicate must
+ * wrap this explicitly.
+ */
 export function isCurrentVaultItemEnvelope(encryptedData: string): boolean {
-    return isCurrentVaultEntryEnvelope(encryptedData);
+    return parseEnvelope(VAULT_ITEM_ENVELOPE_SPEC, encryptedData).version === 1;
 }
 
 // ============ Verification hashes ============

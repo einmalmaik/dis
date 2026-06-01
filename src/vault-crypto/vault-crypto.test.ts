@@ -11,7 +11,7 @@
  *      RSA-OAEP, KDF upgrade, re-encryption) seals and opens correctly and fails
  *      closed on tampering / wrong context.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as vault from './index.js';
 
 const PW = 'correct horse battery staple';
@@ -77,6 +77,31 @@ describe('Singra profile — vault item round-trip & fail-closed', () => {
         const key = await vault.deriveKey(PW, SALT, 2);
         const sealed = await vault.encryptVaultItem({ password: 'p' }, key, 'entry-1');
         await expect(vault.decryptVaultItem(sealed, key, 'entry-2')).rejects.toThrow();
+    });
+
+    it('isCurrentVaultItemEnvelope: true for v1, false for legacy, THROWS for unknown sv-vault-*', async () => {
+        const key = await vault.deriveKey(PW, SALT, 2);
+        const sealed = await vault.encryptVaultItem({ password: 'p' }, key, 'e');
+        expect(vault.isCurrentVaultItemEnvelope(sealed)).toBe(true);
+        expect(vault.isCurrentVaultItemEnvelope('bGVnYWN5LWJhc2U2NA==')).toBe(false);
+        expect(() => vault.isCurrentVaultItemEnvelope('sv-vault-v99:future-payload')).toThrow(
+            /Unsupported vault item encryption envelope version/,
+        );
+    });
+
+    it('decryptVaultItem warns + opens legacy no-AAD payloads only under explicit migration', async () => {
+        const key = await vault.deriveKey(PW, SALT, 2);
+        const item = { title: 'legacy', password: 'secret' };
+        const legacyNoAad = await vault.encrypt(JSON.stringify(item), key); // no envelope, no AAD
+        // Runtime read path fails closed.
+        await expect(vault.decryptVaultItem(legacyNoAad, key, 'item-1')).rejects.toThrow();
+        // Explicit migration path opens it AND logs the legacy marker.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        await expect(
+            vault.decryptVaultItem(legacyNoAad, key, 'item-1', { allowLegacyNoAadFallback: true }),
+        ).resolves.toEqual(item);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Legacy entry without AAD detected'));
+        warn.mockRestore();
     });
 });
 
