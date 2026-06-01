@@ -134,6 +134,51 @@ export async function unwrapUserKey(
 }
 
 /**
+ * Wraps a *deterministic* content key derived directly from `kdfOutputBytes`,
+ * for EXISTING accounts migrating to the two-tier key model. The content key
+ * equals the raw KDF output, so vault data previously encrypted directly under
+ * that output remains readable without re-encryption. The KEK is still
+ * domain-separated (HKDF `info`), so the wrapper is independent of the key.
+ */
+export async function createDeterministicWrappedUserKey(
+    kdfOutputBytes: Uint8Array,
+    scheme: KeyWrapScheme = DEFAULT_KEY_WRAP_SCHEME,
+): Promise<UserKeyBundle> {
+    // Copy so callers can wipe their buffer without aliasing the returned key.
+    const userKeyBytes = new Uint8Array(kdfOutputBytes);
+    let wrapKeyBytes: Uint8Array | null = null;
+    try {
+        wrapKeyBytes = await deriveWrapKeyBytes(kdfOutputBytes, scheme);
+        const wrapKey = await importAesGcmKey(wrapKeyBytes);
+        const encryptedUserKey = `${scheme.prefix}${await encryptBytes(userKeyBytes, wrapKey)}`;
+        const userKey = await importAesGcmKey(userKeyBytes);
+        return { encryptedUserKey, userKey };
+    } finally {
+        userKeyBytes.fill(0);
+        wrapKeyBytes?.fill(0);
+    }
+}
+
+/** Generates a fresh AES-256-GCM key and returns it as a JWK JSON string. */
+export async function generateAesGcmKeyJwk(): Promise<string> {
+    const key = await subtle().generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+    ]);
+    const jwk = await subtle().exportKey('jwk', key);
+    return JSON.stringify(jwk);
+}
+
+/** Imports an AES-256-GCM key from a JWK JSON string for the given usages. */
+export async function importAesGcmKeyFromJwk(
+    jwkString: string,
+    usages: ReadonlyArray<KeyUsage>,
+): Promise<CryptoKey> {
+    const jwk = JSON.parse(jwkString) as JsonWebKey;
+    return subtle().importKey('jwk', jwk, { name: 'AES-GCM', length: 256 }, false, [...usages]);
+}
+
+/**
  * Re-wraps an existing content key under a new KDF output (new master password
  * / new salt). The content key itself is unchanged, so NO vault data is
  * re-encrypted — only the wrapper string changes.

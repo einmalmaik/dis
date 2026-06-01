@@ -57,9 +57,17 @@
       "types": "./dist/key-management/index.d.ts",
       "import": "./dist/key-management/index.js"
     },
+    "./asymmetric": {
+      "types": "./dist/asymmetric/index.d.ts",
+      "import": "./dist/asymmetric/index.js"
+    },
     "./post-quantum": {
       "types": "./dist/post-quantum/index.d.ts",
       "import": "./dist/post-quantum/index.js"
+    },
+    "./vault-crypto": {
+      "types": "./dist/vault-crypto/index.d.ts",
+      "import": "./dist/vault-crypto/index.js"
     },
     "./integrity": {
       "types": "./dist/integrity/index.d.ts",
