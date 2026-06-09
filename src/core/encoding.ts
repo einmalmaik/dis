@@ -46,6 +46,36 @@ export function bytesToUtf8(bytes: Uint8Array): string {
     return textDecoder.decode(bytes);
 }
 
+/**
+ * Encodes bytes to an unpadded base64url (RFC 4648 §5) string.
+ *
+ * Reproduces the exact transform used by Singra Vault's `encodeBase64Url`
+ * (standard base64 with `+`→`-`, `/`→`_`, trailing `=` stripped) so DIS is
+ * byte-compatible with stored op-log signatures, hashes and public keys.
+ */
+export function bytesToBase64Url(bytes: Uint8Array): string {
+    return bytesToBase64(bytes)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+}
+
+/** Decodes an unpadded base64url string to bytes. */
+export function base64UrlToBytes(base64url: string): Uint8Array {
+    const normalized = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    return base64ToBytes(padded);
+}
+
+/** Lower-case hex string of the given bytes. */
+export function bytesToHex(bytes: Uint8Array): string {
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i]!.toString(16).padStart(2, '0');
+    }
+    return hex;
+}
+
 /** Concatenates byte arrays into a single new buffer. */
 export function concatBytes(...parts: Uint8Array[]): Uint8Array {
     let total = 0;

@@ -21,6 +21,8 @@ export default defineConfig({
         'post-quantum/index': 'src/post-quantum/index.ts',
         'vault-crypto/index': 'src/vault-crypto/index.ts',
         'integrity/index': 'src/integrity/index.ts',
+        'signing/index': 'src/signing/index.ts',
+        'totp/index': 'src/totp/index.ts',
         'migrations/index': 'src/migrations/index.ts',
     },
     format: ['esm'],
@@ -31,5 +33,5 @@ export default defineConfig({
     target: 'es2022',
     // Keep crypto libraries external so consumers control the exact version
     // and so the post-quantum dependency stays optional.
-    external: ['hash-wasm', '@noble/post-quantum'],
+    external: ['hash-wasm', '@noble/post-quantum', 'otpauth'],
 });

@@ -169,3 +169,98 @@ export async function deriveAesGcmKey(
         keyBytes.fill(0);
     }
 }
+
+/** Explicit Argon2id parameters for a single ad-hoc derivation. */
+export interface Argon2idRawParams {
+    readonly password: string;
+    readonly salt: Uint8Array;
+    /** Memory cost in KiB. */
+    readonly memorySize: number;
+    readonly iterations: number;
+    readonly parallelism: number;
+    readonly hashLength: number;
+}
+
+/**
+ * Low-level Argon2id derivation returning raw key bytes. This is the audited
+ * `hash-wasm` Argon2id with caller-chosen parameters and a raw byte salt — for
+ * call sites that derive a key with a context-specific salt/param set (device
+ * key transfer wrapping, integrity HMAC key) rather than the versioned account
+ * KDF registry used by {@link deriveRawKey}.
+ */
+export async function argon2idRaw(params: Argon2idRawParams): Promise<Uint8Array> {
+    if (typeof params.password !== 'string' || params.password.length === 0) {
+        throw new DisInvalidArgumentError('password must be a non-empty string');
+    }
+    const result = await argon2id({
+        password: params.password,
+        salt: params.salt,
+        parallelism: params.parallelism,
+        iterations: params.iterations,
+        memorySize: params.memorySize,
+        hashLength: params.hashLength,
+        outputType: 'binary',
+    });
+    return new Uint8Array(result);
+}
+
+/**
+ * HKDF-SHA-256 expand/extract producing `lengthBits` of key material.
+ *
+ * `ikm` is the input keying material, `salt` defaults to the empty salt (the
+ * op-log record/snapshot derivations use an empty salt and put all context in
+ * `info`; the device-key derivation uses the device key as salt).
+ */
+export async function deriveHkdfSha256Bits(
+    ikm: Uint8Array,
+    options: { info: Uint8Array; salt?: Uint8Array; lengthBits?: number },
+): Promise<Uint8Array> {
+    const baseKey = await subtle().importKey(
+        'raw',
+        ikm as BufferSource,
+        { name: 'HKDF' },
+        false,
+        ['deriveBits'],
+    );
+    const bits = await subtle().deriveBits(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: (options.salt ?? new Uint8Array(0)) as BufferSource,
+            info: options.info as BufferSource,
+        },
+        baseKey,
+        options.lengthBits ?? 256,
+    );
+    return new Uint8Array(bits);
+}
+
+/**
+ * HKDF-SHA-256 deriving directly into a non-extractable AES-256-GCM key,
+ * mirroring `crypto.subtle.deriveKey` (used by passkey PRF wrapping and the
+ * legacy device-key wrapping path).
+ */
+export async function deriveHkdfAesGcmKey(
+    ikm: Uint8Array,
+    options: { info: Uint8Array; salt?: Uint8Array; usages?: KeyUsage[] },
+): Promise<CryptoKey> {
+    const baseKey = await subtle().importKey(
+        'raw',
+        ikm as BufferSource,
+        'HKDF',
+        false,
+        ['deriveKey'],
+    );
+    return subtle().deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: (options.salt ?? new Uint8Array(0)) as BufferSource,
+            info: options.info as BufferSource,
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        options.usages ?? ['encrypt', 'decrypt'],
+    );
+}

@@ -95,6 +95,94 @@ export async function decryptBytes(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Raw-mode AES-GCM
+//
+// The high-level helpers above own the IV and bundle `base64(IV || ct)`. Some
+// Singra surfaces instead manage the nonce themselves and store the nonce and
+// ciphertext as separate fields (op-log records, snapshots), bind binary AAD,
+// or use a generated non-extractable wrapping key (local secret store). These
+// primitives expose AES-256-GCM at that lower level while keeping all WebCrypto
+// access inside DIS. Tag length is pinned to 128 bits.
+// ---------------------------------------------------------------------------
+
+/** Imports raw key bytes as an AES-GCM key with the given usages. */
+export async function importAesGcmRawKey(
+    keyBytes: Uint8Array,
+    usages: KeyUsage[],
+): Promise<CryptoKey> {
+    return subtle().importKey(
+        'raw',
+        keyBytes as BufferSource,
+        { name: 'AES-GCM' },
+        false,
+        usages,
+    );
+}
+
+/** Generates a fresh non-extractable AES-256-GCM key. */
+export async function generateAesGcmKey(
+    usages: KeyUsage[] = ['encrypt', 'decrypt'],
+    extractable = false,
+): Promise<CryptoKey> {
+    return subtle().generateKey({ name: 'AES-GCM', length: 256 }, extractable, usages);
+}
+
+/**
+ * AES-256-GCM encrypt with a caller-supplied nonce and optional binary AAD.
+ * Returns raw `ciphertext || authTag` bytes (no nonce prefix). `key` may be a
+ * raw 32-byte array or an already-imported `CryptoKey`.
+ */
+export async function aesGcmEncrypt(
+    key: CryptoKey | Uint8Array,
+    nonce: Uint8Array,
+    plaintext: Uint8Array,
+    associatedData?: Uint8Array,
+): Promise<Uint8Array> {
+    const cryptoKey = key instanceof Uint8Array ? await importAesGcmRawKey(key, ['encrypt']) : key;
+    const ciphertext = await subtle().encrypt(
+        {
+            name: 'AES-GCM',
+            iv: nonce as BufferSource,
+            tagLength: AES_GCM_TAG_LENGTH,
+            ...(associatedData && { additionalData: associatedData as BufferSource }),
+        },
+        cryptoKey,
+        plaintext as BufferSource,
+    );
+    return new Uint8Array(ciphertext);
+}
+
+/**
+ * AES-256-GCM decrypt with a caller-supplied nonce and optional binary AAD.
+ * `ciphertext` is raw `ciphertext || authTag` bytes. Throws
+ * {@link DisDecryptionError} on any failure (wrong key / tamper / AAD mismatch)
+ * without distinguishing the cause.
+ */
+export async function aesGcmDecrypt(
+    key: CryptoKey | Uint8Array,
+    nonce: Uint8Array,
+    ciphertext: Uint8Array,
+    associatedData?: Uint8Array,
+): Promise<Uint8Array> {
+    const cryptoKey = key instanceof Uint8Array ? await importAesGcmRawKey(key, ['decrypt']) : key;
+    try {
+        const plaintext = await subtle().decrypt(
+            {
+                name: 'AES-GCM',
+                iv: nonce as BufferSource,
+                tagLength: AES_GCM_TAG_LENGTH,
+                ...(associatedData && { additionalData: associatedData as BufferSource }),
+            },
+            cryptoKey,
+            ciphertext as BufferSource,
+        );
+        return new Uint8Array(plaintext);
+    } catch {
+        throw new DisDecryptionError();
+    }
+}
+
 /** Encrypts a UTF-8 string. The intermediate plaintext bytes are wiped. */
 export async function encryptString(
     plaintext: string,
