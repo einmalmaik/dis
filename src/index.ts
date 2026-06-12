@@ -84,13 +84,38 @@ export {
     type SharedKeyWrapAadInput,
 } from './post-quantum/index.js';
 
-// Integrity
+// Integrity & hashing
 export {
     verifyPayloadIntegrity,
+    sha256Bytes,
     sha256Base64,
+    sha256Base64Url,
+    sha256Hex,
+    sha1Hex,
     sha256JsonBase64,
+    hmacSha256,
+    hmacSha256WithKey,
+    importHmacSha256Key,
     constantTimeEqual,
 } from './integrity/index.js';
+
+// Digital signatures (ECDSA P-256)
+export {
+    generateEcdsaP256KeyPair,
+    importEcdsaP256PublicKeySpki,
+    signEcdsaP256,
+    verifyEcdsaP256,
+    ECDSA_P256_SIGNATURE_LENGTH,
+    type EcdsaP256KeyPair,
+} from './signing/index.js';
+
+// Time-based one-time passwords (TOTP)
+export {
+    generateTotpSecret,
+    buildTotpUri,
+    verifyTotpCode,
+    type TotpParams,
+} from './totp/index.js';
 
 // Migrations (migrateEncryptedPayload via the registry)
 export {
@@ -107,7 +132,18 @@ export {
     decryptBytes,
     encryptString,
     decryptString,
+    aesGcmEncrypt,
+    aesGcmDecrypt,
+    importAesGcmRawKey,
+    generateAesGcmKey,
 } from './aead/index.js';
+
+export {
+    argon2idRaw,
+    deriveHkdfSha256Bits,
+    deriveHkdfAesGcmKey,
+    type Argon2idRawParams,
+} from './kdf/index.js';
 
 export {
     SecureBuffer,
@@ -115,7 +151,7 @@ export {
     zeroBuffers,
 } from './secure-memory/index.js';
 
-export { randomBytes, randomUuid } from './random/index.js';
+export { randomBytes, randomInt, fillRandom, randomUuid } from './random/index.js';
 
 export {
     formatEnvelope,

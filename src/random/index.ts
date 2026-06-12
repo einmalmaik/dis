@@ -19,6 +19,48 @@ export function randomBytes(length: number): Uint8Array {
     return out;
 }
 
+/**
+ * Fills an existing `ArrayBufferView` with cryptographically secure random
+ * bytes in place. Used by callers that own a buffer they want to overwrite
+ * (e.g. secure-memory scrubbing) without allocating a second array.
+ */
+export function fillRandom<T extends ArrayBufferView>(view: T): T {
+    return getCryptoProvider().getRandomValues(view);
+}
+
+/**
+ * Returns a cryptographically secure random integer in the inclusive range
+ * `[min, max]` using rejection sampling to avoid modulo bias.
+ *
+ * Byte-for-byte equivalent to the `getSecureRandomInt` helpers in Singra Vault
+ * (password generator, backup-code generator): it draws `ceil(log2(range)/8)`
+ * bytes big-endian and rejects values above the largest multiple of `range`.
+ */
+export function randomInt(min: number, max: number): number {
+    if (!Number.isInteger(min) || !Number.isInteger(max)) {
+        throw new DisInvalidArgumentError('randomInt bounds must be integers');
+    }
+    if (max < min) {
+        throw new DisInvalidArgumentError('randomInt max must be >= min');
+    }
+    const range = max - min + 1;
+    if (range === 1) {
+        return min;
+    }
+    const bytesNeeded = Math.ceil(Math.log2(range) / 8) || 1;
+    const maxValid = Math.floor((256 ** bytesNeeded) / range) * range - 1;
+    const buffer = new Uint8Array(bytesNeeded);
+    let randomValue: number;
+    do {
+        getCryptoProvider().getRandomValues(buffer);
+        randomValue = 0;
+        for (let i = 0; i < bytesNeeded; i++) {
+            randomValue = (randomValue << 8) | buffer[i]!;
+        }
+    } while (randomValue > maxValid);
+    return min + (randomValue % range);
+}
+
 /** Returns a RFC 4122 v4 UUID using the provider's CSPRNG. */
 export function randomUuid(): string {
     const provider = getCryptoProvider() as { randomUUID?: () => string };
