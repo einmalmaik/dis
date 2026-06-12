@@ -130,5 +130,8 @@
     "post-quantum",
     "ml-kem",
     "security"
-  ]
+  ],
+  "overrides": {
+    "esbuild": "^0.28.1"
+  }
 }
