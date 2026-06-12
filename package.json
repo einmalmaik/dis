@@ -1,6 +1,6 @@
 {
   "name": "@dis/shield",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DIS — Defensive Integration Shield. Central, framework-agnostic cryptographic security platform (KDF, AEAD, vault & file encryption, key management, versioned formats, migrations). Powered by DIS — Defensive Integration Shield.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
@@ -130,5 +130,8 @@
     "post-quantum",
     "ml-kem",
     "security"
-  ]
+  ],
+  "overrides": {
+    "esbuild": "^0.28.1"
+  }
 }
