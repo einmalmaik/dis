@@ -128,6 +128,31 @@ migrateToHybrid(
    `DisLegacyPayloadError`.
 6. **Providers are injectable** via `setCryptoProvider` for tests/hardware.
 
+## Error handling
+
+DIS throws typed errors from `@dis/shield/core`. Map them to user-facing
+copy in your application; do not surface raw `message` to end users (some
+include stack-trace-ish details that are not useful to a user and may
+leak internal state). Do not switch on the string of the message — switch
+on the `code` property or the constructor.
+
+| Error class | `code` (when applicable) | When it fires | Suggested app behaviour |
+| --- | --- | --- | --- |
+| `DisDecryptionError` | — | AEAD failure: wrong key, tampered ciphertext, or wrong AAD | Treat as "wrong password" or "data corruption". Do **not** expose the cause — there is no oracle, by design. |
+| `DisIntegrityError` | — | SHA-256 verification of a stored payload (manifest, hash chain) failed | Trigger quarantine / re-fetch from a trusted source / log for the security team. |
+| `DisUnsupportedFormatVersionError` | — | Ciphertext carries an unknown in-family version prefix (e.g. `sv-vault-v9:`) | Refuse to read. Ask the user to update the app. |
+| `DisLegacyPayloadError` | — | Runtime read hit an unversioned / no-AAD payload | Refuse on the runtime path. Re-try through the explicit migration helper (`decryptVaultEntryForMigration` etc.) or refuse. |
+| `DisInvalidArgumentError` | — | Caller passed a bad argument (empty string, wrong length, missing required AAD, …) | Programming error in the app. Log and surface a generic error. |
+| `DisError` | `'UNSUPPORTED_KDF_VERSION'` | The KDF version stored for an account is not in the registry | Refuse unlock. Ask the user to update (or roll back, but never silently upgrade). |
+| `DisError` | `'KEY_DERIVATION_FAILED'` | Argon2id output was the wrong type | Should not happen; report as a bug. |
+| `DisError` | `'INVALID_ARGUMENT'` | Migration cycle detected | The migration registry has a bug; report. |
+| `DisError` | `'SECURITY_STANDARD_BLOCKED'` (post-quantum) | Hybrid ciphertext at a version not permitted by the security standard | Refuse. Run the migration helper (`migrateToHybrid`) explicitly. |
+
+**The contract:** AEAD failures do not reveal cause (no padding/AAD oracle).
+Your error UX must respect that. Log the type for yourself, but show the
+user a generic "could not decrypt — wrong password or corrupted data"
+message.
+
 ## Breaking-change policy
 
 - Format-frozen constants are append-only (`sv-vault-v1` → add `sv-vault-v2`,
