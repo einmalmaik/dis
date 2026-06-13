@@ -11,7 +11,7 @@ time and are a baseline, not a guarantee.
 | `hash-wasm` | 4.12.0 | Argon2id KDF | `singravault` |
 | WebCrypto `SubtleCrypto` | platform | AES-GCM, HKDF, RSA-OAEP, SHA-256 | both |
 | `@noble/post-quantum` | 0.5.4 | ML-KEM-768 (hybrid) | `singravault` |
-| `otpauth` | ^9.5.0 | TOTP (out of DIS scope) | `singravault` |
+| `otpauth` | ^9.5.0 | TOTP (RFC 6238) — now lives inside DIS `@dis/shield/totp` | DIS repo (dep) |
 
 ## Singra Vault — core crypto modules
 

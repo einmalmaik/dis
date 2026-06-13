@@ -28,6 +28,17 @@ migration framework) are implemented and tested. The post-quantum hybrid
 sharing layer and the application cutover are tracked in
 [`docs/migration-plan.md`](docs/migration-plan.md).
 
+## Branding
+
+DIS exports a `DIS_BRANDING` string constant for applications that want to
+display a "Powered by DIS — Defensive Integration Shield" badge. This is
+optional; the branding requirements live in [`docs/licensing.md`](docs/licensing.md).
+
+```ts
+import { DIS_BRANDING } from '@dis/shield';
+// 'Powered by DIS — Defensive Integration Shield'
+```
+
 ## Install
 
 ```bash

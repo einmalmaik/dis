@@ -24,19 +24,91 @@ isCurrentVaultEntryEnvelope(sealed): boolean
 encryptAttachment(input: EncryptAttachmentInput): Promise<{ manifest; manifestRoot }>
 decryptAttachment(input: DecryptAttachmentInput): Promise<void>
 
-// KDF
+// KDF (see @dis/shield/kdf for low-level access; vault-crypto profile below)
 deriveMasterKey(password, saltBase64, opts?): Promise<CryptoKey>  // == deriveAesGcmKey
 deriveRawKey(password, saltBase64, opts?): Promise<Uint8Array>
 generateSalt(): string
+
+// Note: `KDF_PARAMS` is **not** exported from the SDK facade.
+// The SDK re-exports `CURRENT_KDF_VERSION` and `DEFAULT_KDF_PARAMS` from
+// @dis/shield/kdf. The plain-record `KDF_PARAMS` alias lives in
+// @dis/shield/vault-crypto and is meant for Singra's call sites that look
+// up params by version. For new applications, prefer `DEFAULT_KDF_PARAMS`
+// from the SDK facade or @dis/shield/kdf.
+
+// Two KDF paths exist — pick by what you need:
+//
+// (1) Generic: takes a typed `opts.strengthen` for HKDF-Expand second-factor binding
+deriveAesGcmKey(password, saltBase64, {
+  version?: number,                  // KDF version registry; defaults to CURRENT_KDF_VERSION
+  params?: Readonly<Record<number, KdfParams>>,  // optional override
+  strengthen?: {                     // optional HKDF second-factor binding
+    hkdfSalt: Uint8Array,
+    info: string,                    // caller-owned domain-separation label
+  },
+}): Promise<CryptoKey>
+
+// (2) Singra Vault profile (vault-crypto): positional `deviceKey` is the common case
+deriveRawKey(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<Uint8Array>
+deriveKey(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<CryptoKey>
+deriveRawKeySecure(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<SecureBuffer>
+//
+// When `deviceKey` is supplied, DIS strengthens the Argon2id output via HKDF-Expand
+// with HKDF info = 'SINGRA_DEVICE_KEY_V1' and salt = the device key bytes.
+// (The `info` string is part of the wire-format contract; see crypto-dependency-map.md.)
 
 // Key management
 createWrappedUserKey(kdfOutputBytes, scheme?): Promise<UserKeyBundle>
 unwrapUserKey(encryptedUserKey, kdfOutputBytes, scheme?): Promise<CryptoKey>
 rotateEncryptionKeys(encryptedUserKey, oldKdf, newKdf, scheme?): Promise<string>
 
+// TOTP — the SDK facade re-exports the 2FA-enrolment surface only.
+// For password-manager authenticator code (third-party imported entries
+// with non-default algorithm / digits / period), import directly:
+//   import { generateTotpCode, buildTotpUriWithOptions } from '@dis/shield/totp'
+// The SDK export intentionally omits these so the 2FA-enrolment contract
+// (SHA-1 / 6 digits / 30 s) is the only thing 2FA call sites can reach.
+generateTotpSecret(): string
+buildTotpUri({ issuer, label, secret }): string
+verifyTotpCode(secret, code, window?): boolean
+
 // Integrity & migrations
 verifyPayloadIntegrity(bytes, expectedBase64): Promise<void>
-new MigrationRegistry().register(...).migrateToLatest(...)
+
+// Migration framework — see docs/migrations.md for the full guide.
+// DIS provides the framework; the application registers concrete steps.
+new MigrationRegistry().register(migration: Migration).migrateToLatest(
+  subject: string,
+  payload: string,
+  detect: VersionDetector,
+  context: MigrationContext,
+): Promise<string>
+
+// ---- Two functions share a name across modules — read carefully. -----------
+//
+// (a) Storage-format migration for a wrapped private key.
+//     Lives in @dis/shield/vault-crypto. Rewrites a stored
+//     'salt:enc' / 'ver:salt:enc' private-key blob to the hybrid
+//     'pq-v2:ver:salt:encRsa:encPq' form.
+migrateToHybridKeyPair(encryptedPrivateKey: string, masterPassword: string):
+  Promise<{ publicKey: string; encryptedPrivateKey: string; pqPublicKey: string } | null>
+
+// (b) Cipher-version migration for an already-hybrid PQ+RSA ciphertext.
+//     Lives in @dis/shield/post-quantum. Re-encodes a v1 (0x01 RSA-only),
+//     legacy (0x02), or standard v1 (0x03) hybrid ciphertext into the
+//     current standard v2 (0x04). Byte-layout preserved.
+migrateToHybrid(
+  legacyCiphertext: string,
+  rsaPrivateKey: string,            // JWK string
+  pqSecretKey: string | null,       // base64; required for 0x02 and 0x03
+  pqPublicKey: string,              // base64
+  rsaPublicKey: string,             // JWK string
+  aad?: string,
+): Promise<string>
+//
+// Use (a) when you are reading a legacy stored private key and want to
+// upgrade its storage format. Use (b) when you already have a hybrid
+// ciphertext at an old version and want to refresh it in place.
 ```
 
 ## Design rules
@@ -55,6 +127,31 @@ new MigrationRegistry().register(...).migrateToLatest(...)
    `DisUnsupportedFormatVersionError`. Legacy on runtime path →
    `DisLegacyPayloadError`.
 6. **Providers are injectable** via `setCryptoProvider` for tests/hardware.
+
+## Error handling
+
+DIS throws typed errors from `@dis/shield/core`. Map them to user-facing
+copy in your application; do not surface raw `message` to end users (some
+include stack-trace-ish details that are not useful to a user and may
+leak internal state). Do not switch on the string of the message — switch
+on the `code` property or the constructor.
+
+| Error class | `code` (when applicable) | When it fires | Suggested app behaviour |
+| --- | --- | --- | --- |
+| `DisDecryptionError` | — | AEAD failure: wrong key, tampered ciphertext, or wrong AAD | Treat as "wrong password" or "data corruption". Do **not** expose the cause — there is no oracle, by design. |
+| `DisIntegrityError` | — | SHA-256 verification of a stored payload (manifest, hash chain) failed | Trigger quarantine / re-fetch from a trusted source / log for the security team. |
+| `DisUnsupportedFormatVersionError` | — | Ciphertext carries an unknown in-family version prefix (e.g. `sv-vault-v9:`) | Refuse to read. Ask the user to update the app. |
+| `DisLegacyPayloadError` | — | Runtime read hit an unversioned / no-AAD payload | Refuse on the runtime path. Re-try through the explicit migration helper (`decryptVaultEntryForMigration` etc.) or refuse. |
+| `DisInvalidArgumentError` | — | Caller passed a bad argument (empty string, wrong length, missing required AAD, …) | Programming error in the app. Log and surface a generic error. |
+| `DisError` | `'UNSUPPORTED_KDF_VERSION'` | The KDF version stored for an account is not in the registry | Refuse unlock. Ask the user to update (or roll back, but never silently upgrade). |
+| `DisError` | `'KEY_DERIVATION_FAILED'` | Argon2id output was the wrong type | Should not happen; report as a bug. |
+| `DisError` | `'INVALID_ARGUMENT'` | Migration cycle detected | The migration registry has a bug; report. |
+| `DisError` | `'SECURITY_STANDARD_BLOCKED'` (post-quantum) | Hybrid ciphertext at a version not permitted by the security standard | Refuse. Run the migration helper (`migrateToHybrid`) explicitly. |
+
+**The contract:** AEAD failures do not reveal cause (no padding/AAD oracle).
+Your error UX must respect that. Log the type for yourself, but show the
+user a generic "could not decrypt — wrong password or corrupted data"
+message.
 
 ## Breaking-change policy
 
