@@ -29,6 +29,13 @@ deriveMasterKey(password, saltBase64, opts?): Promise<CryptoKey>  // == deriveAe
 deriveRawKey(password, saltBase64, opts?): Promise<Uint8Array>
 generateSalt(): string
 
+// Note: `KDF_PARAMS` is **not** exported from the SDK facade.
+// The SDK re-exports `CURRENT_KDF_VERSION` and `DEFAULT_KDF_PARAMS` from
+// @dis/shield/kdf. The plain-record `KDF_PARAMS` alias lives in
+// @dis/shield/vault-crypto and is meant for Singra's call sites that look
+// up params by version. For new applications, prefer `DEFAULT_KDF_PARAMS`
+// from the SDK facade or @dis/shield/kdf.
+
 // Two KDF paths exist — pick by what you need:
 //
 // (1) Generic: takes a typed `opts.strengthen` for HKDF-Expand second-factor binding
