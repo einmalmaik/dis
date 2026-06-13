@@ -57,7 +57,41 @@ rotateEncryptionKeys(encryptedUserKey, oldKdf, newKdf, scheme?): Promise<string>
 
 // Integrity & migrations
 verifyPayloadIntegrity(bytes, expectedBase64): Promise<void>
-new MigrationRegistry().register(...).migrateToLatest(...)
+
+// Migration framework — see docs/migrations.md for the full guide.
+// DIS provides the framework; the application registers concrete steps.
+new MigrationRegistry().register(migration: Migration).migrateToLatest(
+  subject: string,
+  payload: string,
+  detect: VersionDetector,
+  context: MigrationContext,
+): Promise<string>
+
+// ---- Two functions share a name across modules — read carefully. -----------
+//
+// (a) Storage-format migration for a wrapped private key.
+//     Lives in @dis/shield/vault-crypto. Rewrites a stored
+//     'salt:enc' / 'ver:salt:enc' private-key blob to the hybrid
+//     'pq-v2:ver:salt:encRsa:encPq' form.
+migrateToHybridKeyPair(encryptedPrivateKey: string, masterPassword: string):
+  Promise<{ publicKey: string; encryptedPrivateKey: string; pqPublicKey: string } | null>
+
+// (b) Cipher-version migration for an already-hybrid PQ+RSA ciphertext.
+//     Lives in @dis/shield/post-quantum. Re-encodes a v1 (0x01 RSA-only),
+//     legacy (0x02), or standard v1 (0x03) hybrid ciphertext into the
+//     current standard v2 (0x04). Byte-layout preserved.
+migrateToHybrid(
+  legacyCiphertext: string,
+  rsaPrivateKey: string,            // JWK string
+  pqSecretKey: string | null,       // base64; required for 0x02 and 0x03
+  pqPublicKey: string,              // base64
+  rsaPublicKey: string,             // JWK string
+  aad?: string,
+): Promise<string>
+//
+// Use (a) when you are reading a legacy stored private key and want to
+// upgrade its storage format. Use (b) when you already have a hybrid
+// ciphertext at an old version and want to refresh it in place.
 ```
 
 ## Design rules
