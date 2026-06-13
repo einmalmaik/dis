@@ -24,10 +24,31 @@ isCurrentVaultEntryEnvelope(sealed): boolean
 encryptAttachment(input: EncryptAttachmentInput): Promise<{ manifest; manifestRoot }>
 decryptAttachment(input: DecryptAttachmentInput): Promise<void>
 
-// KDF
+// KDF (see @dis/shield/kdf for low-level access; vault-crypto profile below)
 deriveMasterKey(password, saltBase64, opts?): Promise<CryptoKey>  // == deriveAesGcmKey
 deriveRawKey(password, saltBase64, opts?): Promise<Uint8Array>
 generateSalt(): string
+
+// Two KDF paths exist — pick by what you need:
+//
+// (1) Generic: takes a typed `opts.strengthen` for HKDF-Expand second-factor binding
+deriveAesGcmKey(password, saltBase64, {
+  version?: number,                  // KDF version registry; defaults to CURRENT_KDF_VERSION
+  params?: Readonly<Record<number, KdfParams>>,  // optional override
+  strengthen?: {                     // optional HKDF second-factor binding
+    hkdfSalt: Uint8Array,
+    info: string,                    // caller-owned domain-separation label
+  },
+}): Promise<CryptoKey>
+
+// (2) Singra Vault profile (vault-crypto): positional `deviceKey` is the common case
+deriveRawKey(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<Uint8Array>
+deriveKey(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<CryptoKey>
+deriveRawKeySecure(masterPassword, saltBase64, kdfVersion?, deviceKey?): Promise<SecureBuffer>
+//
+// When `deviceKey` is supplied, DIS strengthens the Argon2id output via HKDF-Expand
+// with HKDF info = 'SINGRA_DEVICE_KEY_V1' and salt = the device key bytes.
+// (The `info` string is part of the wire-format contract; see crypto-dependency-map.md.)
 
 // Key management
 createWrappedUserKey(kdfOutputBytes, scheme?): Promise<UserKeyBundle>
