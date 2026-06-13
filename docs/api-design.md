@@ -62,6 +62,16 @@ createWrappedUserKey(kdfOutputBytes, scheme?): Promise<UserKeyBundle>
 unwrapUserKey(encryptedUserKey, kdfOutputBytes, scheme?): Promise<CryptoKey>
 rotateEncryptionKeys(encryptedUserKey, oldKdf, newKdf, scheme?): Promise<string>
 
+// TOTP — the SDK facade re-exports the 2FA-enrolment surface only.
+// For password-manager authenticator code (third-party imported entries
+// with non-default algorithm / digits / period), import directly:
+//   import { generateTotpCode, buildTotpUriWithOptions } from '@dis/shield/totp'
+// The SDK export intentionally omits these so the 2FA-enrolment contract
+// (SHA-1 / 6 digits / 30 s) is the only thing 2FA call sites can reach.
+generateTotpSecret(): string
+buildTotpUri({ issuer, label, secret }): string
+verifyTotpCode(secret, code, window?): boolean
+
 // Integrity & migrations
 verifyPayloadIntegrity(bytes, expectedBase64): Promise<void>
 
