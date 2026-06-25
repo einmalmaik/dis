@@ -35,14 +35,14 @@ display a "Powered by DIS — Defensive Integration Shield" badge. This is
 optional; the branding requirements live in [`docs/licensing.md`](docs/licensing.md).
 
 ```ts
-import { DIS_BRANDING } from '@dis/shield';
+import { DIS_BRANDING } from '@msdis/shield';
 // 'Powered by DIS — Defensive Integration Shield'
 ```
 
 ## Install
 
 ```bash
-npm install @dis/shield
+npm install @msdis/shield
 # Optional, only if you use the post-quantum sharing module:
 npm install @noble/post-quantum
 ```
@@ -58,7 +58,7 @@ import {
   decryptVaultEntry,
   createWrappedUserKey,
   rotateEncryptionKeys,
-} from '@dis/shield';
+} from '@msdis/shield';
 
 const salt = '...'; // base64, stored per account
 const kek = await deriveMasterKey(masterPassword, salt); // Argon2id -> AES-GCM key
@@ -70,26 +70,26 @@ const data = await decryptVaultEntry(sealed, kek, entryId);
 Narrow imports are tree-shakeable:
 
 ```ts
-import { encryptBytes } from '@dis/shield/aead';
-import { deriveRawKey } from '@dis/shield/kdf';
+import { encryptBytes } from '@msdis/shield/aead';
+import { deriveRawKey } from '@msdis/shield/kdf';
 ```
 
 ## Modules
 
 | Entry point | Responsibility |
 | --- | --- |
-| `@dis/shield/core` | Errors, encoding, constants, crypto-provider abstraction |
-| `@dis/shield/random` | Secure random bytes / UUIDs |
-| `@dis/shield/secure-memory` | `SecureBuffer` for key material |
-| `@dis/shield/kdf` | Argon2id, versioned parameters, HKDF strengthening |
-| `@dis/shield/aead` | AES-256-GCM encrypt/decrypt with AAD |
-| `@dis/shield/format-versioning` | Versioned, prefix-tagged envelopes |
-| `@dis/shield/vault-encryption` | Vault-entry sealing (entry-id AAD binding) |
-| `@dis/shield/file-encryption` | Chunked attachment encryption + manifests |
-| `@dis/shield/key-management` | Content-key wrap / unwrap / rotation |
-| `@dis/shield/post-quantum` | ML-KEM-768 + RSA-4096 hybrid key wrapping (sharing / emergency access) |
-| `@dis/shield/integrity` | SHA-256, constant-time compare, verification |
-| `@dis/shield/migrations` | Ordered, explicit payload migrations |
+| `@msdis/shield/core` | Errors, encoding, constants, crypto-provider abstraction |
+| `@msdis/shield/random` | Secure random bytes / UUIDs |
+| `@msdis/shield/secure-memory` | `SecureBuffer` for key material |
+| `@msdis/shield/kdf` | Argon2id, versioned parameters, HKDF strengthening |
+| `@msdis/shield/aead` | AES-256-GCM encrypt/decrypt with AAD |
+| `@msdis/shield/format-versioning` | Versioned, prefix-tagged envelopes |
+| `@msdis/shield/vault-encryption` | Vault-entry sealing (entry-id AAD binding) |
+| `@msdis/shield/file-encryption` | Chunked attachment encryption + manifests |
+| `@msdis/shield/key-management` | Content-key wrap / unwrap / rotation |
+| `@msdis/shield/post-quantum` | ML-KEM-768 + RSA-4096 hybrid key wrapping (sharing / emergency access) |
+| `@msdis/shield/integrity` | SHA-256, constant-time compare, verification |
+| `@msdis/shield/migrations` | Ordered, explicit payload migrations |
 
 ## Security
 
