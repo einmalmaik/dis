@@ -132,10 +132,30 @@ const { manifest, manifestRoot } = await encryptAttachment({
 // → persist manifest. chunkSize defaults to 4 MiB.
 ```
 
-For decryption, you pass back the manifest and DIS streams chunks through
-your `readChunk` / `writeChunk` callbacks. Each chunk is authenticated by
-its AAD (`sv-file-chunk-v1:owner:item:file:rev:manifestRoot:idx:count`).
-A storage operator cannot reorder, splice, or swap chunks undetected.
+For decryption, you pass back the manifest, the matching context, and DIS streams chunks through your `readChunk` / `writeChunk` callbacks:
+
+```ts
+import { decryptAttachment } from '@dis/shield/file-encryption';
+
+const decryptedBytes = new Uint8Array(manifest.original_size);
+
+await decryptAttachment({
+  manifest,
+  context: { ownerId, vaultItemId, fileId },
+  readChunk: async (index, storedSha256) => {
+    return await objectStore.get(`chunks/${fileId}/${index}`); // returns ciphertext base64
+  },
+  writeChunk: async (index, plaintextBytes) => {
+    // Write the decrypted chunk bytes to the correct offset
+    decryptedBytes.set(plaintextBytes, index * manifest.chunk_size);
+  },
+  unwrapFileKey: async (wrappedKey, aad) => {
+    return await vaultDecrypt(wrappedKey, userKey, aad); // returns raw key bytes
+  }
+});
+```
+
+Each chunk is authenticated by its AAD (`sv-file-chunk-v1:owner:item:file:rev:manifestRoot:idx:count`). A storage operator cannot reorder, splice, or swap chunks undetected.
 
 ## 5. Sharing and emergency access (post-quantum hybrid)
 

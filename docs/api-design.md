@@ -21,8 +21,53 @@ decryptVaultEntryForMigration(sealed, key, entryId): Promise<VaultEntryMigration
 isCurrentVaultEntryEnvelope(sealed): boolean
 
 // Attachments (storage-agnostic; caller supplies chunk IO + key wrap)
-encryptAttachment(input: EncryptAttachmentInput): Promise<{ manifest; manifestRoot }>
+encryptAttachment(input: EncryptAttachmentInput): Promise<{ manifest: FileManifestV1; manifestRoot: string }>
 decryptAttachment(input: DecryptAttachmentInput): Promise<void>
+
+interface AttachmentContext {
+  readonly ownerId: string;
+  readonly vaultItemId: string;
+  readonly fileId: string;
+}
+
+interface EncryptAttachmentInput {
+  readonly context: AttachmentContext;
+  readonly fileRevision?: number;
+  readonly chunkSize?: number;
+  readonly totalSize: number;
+  readonly readChunk: (start: number, end: number) => Promise<Uint8Array>;
+  readonly writeChunk: (index: number, ciphertextBase64: string) => Promise<number>;
+  readonly wrapFileKey: (fileKeyBytes: Uint8Array, aad: string) => Promise<string>;
+  readonly metadata: {
+    readonly original_name: string;
+    readonly mime_type: string | null;
+    readonly last_modified: number | null;
+  };
+}
+
+interface DecryptAttachmentInput {
+  readonly context: AttachmentContext;
+  readonly manifest: FileManifestV1;
+  readonly readChunk: (index: number, storedSha256: string) => Promise<string>;
+  readonly writeChunk: (index: number, plaintext: Uint8Array) => Promise<void>;
+  readonly unwrapFileKey: (wrappedKey: string, aad: string) => Promise<Uint8Array>;
+  readonly verifyChunkHashes?: boolean;
+}
+
+// Secure Memory Buffer
+class SecureBuffer {
+  readonly size: number;
+  readonly isDestroyed: boolean;
+  constructor(size: number);
+  static fromBytes(bytes: Uint8Array): SecureBuffer;
+  static fromHex(hex: string): SecureBuffer;
+  static random(size: number): SecureBuffer;
+  use<T>(fn: (data: Uint8Array) => T): T;
+  useAsync<T>(fn: (data: Uint8Array) => Promise<T>): Promise<T>;
+  destroy(): void;
+  toBytes(): Uint8Array;
+  equals(other: SecureBuffer | Uint8Array): boolean;
+}
 
 // KDF (see @dis/shield/kdf for low-level access; vault-crypto profile below)
 deriveMasterKey(password, saltBase64, opts?): Promise<CryptoKey>  // == deriveAesGcmKey
