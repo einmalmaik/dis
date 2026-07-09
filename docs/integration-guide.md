@@ -254,7 +254,32 @@ relevant errors are in `@dis/shield/core`:
 The contract: **AEAD failures do not reveal cause** (no padding/AAD oracle).
 Your error UX must respect that.
 
-## 9. What you should NOT do
+## 9. Branding & UI Integration
+
+According to the MauntingStudios Design DNA, applications utilizing DIS for security should display the standardized `DisBadge` element to indicate cryptographic integrity to the user.
+
+```tsx
+import { DisBadge } from '@msdis/shield/branding'; // or import from local Design DNA components
+
+// Example: Floating bottom-right badge
+export default function AppLayout() {
+  return (
+    <div className="relative min-h-screen">
+      {/* Main content */}
+      <main>...</main>
+      
+      {/* Floating DIS Badge */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <DisBadge />
+      </div>
+    </div>
+  );
+}
+```
+
+The badge should ideally link to `https://dis.mauntingstudios.de` to give users access to the public documentation and security guarantees of the library.
+
+## 10. What you should NOT do
 
 - **Do not import `hash-wasm`, `otpauth`, or `@noble/post-quantum` directly.**
   These are pulled in transitively. Direct imports will be blocked by the
@@ -268,7 +293,7 @@ Your error UX must respect that.
 - **Do not change a published envelope prefix.** Add a new version instead.
 - **Do not roll your own KDF parameters.** Use the versioned registry.
 
-## 10. Where to read more
+## 11. Where to read more
 
 - [`architecture.md`](architecture.md) — what DIS is and is not
 - [`api-design.md`](api-design.md) — the supported function surface
