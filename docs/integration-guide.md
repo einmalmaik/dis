@@ -1,6 +1,6 @@
 # Integration Guide
 
-> **Who is this for?** A new application that wants to consume `@dis/shield`
+> **Who is this for?** A new application that wants to consume `@msdis/shield`
 > for its cryptography. After reading this, you should be able to wire a
 > master-password unlock, a vault-item store/load cycle, a wrapped private
 > key for sharing, and a chunked file attachment, without reading the
@@ -25,16 +25,16 @@ your problem.
 | TOTP for in-app authenticator or for 2FA | `generateTotpSecret` / `verifyTotpCode` / `generateTotpCode` (the `totp` module) |
 
 For Singra Vault's exact composition of all of the above, see
-`docs/architecture.md` (Module boundaries) and `@dis/shield/vault-crypto`
+`docs/architecture.md` (Module boundaries) and `@msdis/shield/vault-crypto`
 (the application-specific composition Singra uses).
 
 ## 1. Install
 
 ```bash
-npm install @dis/shield
+npm install @msdis/shield
 ```
 
-`@dis/shield` pins Node `>=20.19.0` (the same constraint Singra Vault uses).
+`@msdis/shield` pins Node `>=20.19.0` (the same constraint Singra Vault uses).
 No other runtime dependencies are required unless you use the
 `post-quantum` module, in which case install the optional peer:
 
@@ -61,7 +61,7 @@ master password + salt  ──Argon2id──▶  KEK (raw bytes or CryptoKey)
 
 ```ts
 import { deriveRawKey, generateSalt, createWrappedUserKey, unwrapUserKey,
-         encryptVaultEntry, decryptVaultEntry } from '@dis/shield';
+         encryptVaultEntry, decryptVaultEntry } from '@msdis/shield';
 
 // 1) Account setup: generate salt and a wrapped user key. Store both.
 const salt = generateSalt();
@@ -93,7 +93,7 @@ instead.
 ## 3. Password change without re-encrypting data
 
 ```ts
-import { deriveRawKey, rotateWrappedKey } from '@dis/shield';
+import { deriveRawKey, rotateWrappedKey } from '@msdis/shield';
 
 const oldKdfBytes = await deriveRawKey(oldPassword, salt, OLD_KDF_VERSION);
 const newKdfBytes = await deriveRawKey(newPassword, salt, CURRENT_KDF_VERSION);
@@ -115,7 +115,7 @@ Use `encryptAttachment` / `decryptAttachment`. You supply the storage; DIS
 supplies the cryptography and the manifest.
 
 ```ts
-import { encryptAttachment, decryptAttachment } from '@dis/shield/file-encryption';
+import { encryptAttachment, decryptAttachment } from '@msdis/shield/file-encryption';
 
 const { manifest, manifestRoot } = await encryptAttachment({
   context: { ownerId, vaultItemId, fileId },
@@ -135,7 +135,7 @@ const { manifest, manifestRoot } = await encryptAttachment({
 For decryption, you pass back the manifest, the matching context, and DIS streams chunks through your `readChunk` / `writeChunk` callbacks:
 
 ```ts
-import { decryptAttachment } from '@dis/shield/file-encryption';
+import { decryptAttachment } from '@msdis/shield/file-encryption';
 
 const decryptedBytes = new Uint8Array(manifest.original_size);
 
@@ -163,7 +163,7 @@ Each chunk is authenticated by its AAD (`sv-file-chunk-v1:owner:item:file:rev:ma
 > later" adversaries. **Not** the encryption layer for vault item payloads.
 
 ```ts
-import { generateHybridKeyPair, hybridWrapKey, hybridUnwrapKey } from '@dis/shield/post-quantum';
+import { generateHybridKeyPair, hybridWrapKey, hybridUnwrapKey } from '@msdis/shield/post-quantum';
 
 // Per user (or per device that may act as grantor):
 const { rsaPublicKey, rsaPrivateKey, pqPublicKey, pqSecretKey } = await generateHybridKeyPair();
@@ -190,7 +190,7 @@ deterministically.
 
 ```ts
 import { generateEcdsaP256KeyPair, signEcdsaP256, verifyEcdsaP256,
-         importEcdsaP256PublicKeySpki } from '@dis/shield/signing';
+         importEcdsaP256PublicKeySpki } from '@msdis/shield/signing';
 
 const { privateKey, publicKey, publicKeySpki } = await generateEcdsaP256KeyPair();
 // → privateKey is non-extractable. Store publicKeySpki (base64url) for verifiers.
@@ -212,7 +212,7 @@ the bytes is yours.
 
 ```ts
 import { generateTotpSecret, buildTotpUri, verifyTotpCode,
-         generateTotpCode, buildTotpUriWithOptions } from '@dis/shield/totp';
+         generateTotpCode, buildTotpUriWithOptions } from '@msdis/shield/totp';
 
 // Enroll: generate secret, show QR code from the otpauth:// URI.
 const secret = generateTotpSecret();
@@ -238,7 +238,7 @@ explicit per-entry options.
 ## 8. Error handling — what can go wrong
 
 Always wrap DIS calls in a try/catch and map to user-facing copy. The
-relevant errors are in `@dis/shield/core`:
+relevant errors are in `@msdis/shield/core`:
 
 | Error | When | What to do |
 | --- | --- | --- |
