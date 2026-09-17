@@ -41,6 +41,11 @@ attacker, future quantum-capable attacker.
 | 22 | **CI/build pipeline tampering** | CI runs lint/typecheck/test/build + dep & secret scan; no secrets needed at build | M (A: branch protection) |
 | 23 | **Clipboard exposure** | Out of crypto scope | A |
 | 24 | **AEAD/padding oracle** | Single opaque `DisDecryptionError` for all decrypt failures | M |
+| 25 | **Past messages readable after device compromise** | Double Ratchet: per-message key from an HKDF chain, destroyed after use (forward secrecy) | M (`messaging`) |
+| 26 | **Continued read access after compromise** | DH ratchet mixes a fresh ECDH P-256 agreement on every change of direction; one clean round trip locks the attacker out (post-compromise security) | M (`messaging`) |
+| 27 | **Message replay** | A consumed skipped key is removed from the state irrevocably; a position below the chain counter is rejected outright | M (`messaging`) |
+| 28 | **Ratchet DoS** (forged message wedges a session; skipped-key flood) | Decryption commits only after the tag verifies, so the input state is untouched on failure; `maxSkippedKeys` bounds both retained keys (FIFO eviction) and ratchet steps per message | M (`messaging`) |
+| 29 | **Ratchet state theft at rest** | DIS wipes state secrets on `destroyRatchetState`; encrypting the persisted state (e.g. under the user key) is app policy | A (see R-5) |
 
 ## Accepted residual risks
 
@@ -55,6 +60,14 @@ attacker, future quantum-capable attacker.
 - **R-4 Side channels in the host engine** (timing, cache) are out of scope for
   a portable JS library; constant-time compares are used where DIS controls the
   code.
+- **R-5 Ratchet private keys are extractable by design.** Everywhere else DIS
+  keeps private keys as non-extractable `CryptoKey`s. A Double Ratchet state
+  must survive a restart, so `messaging` exports its ECDH P-256 private key to
+  PKCS#8 bytes and holds it in the caller-owned state. The bytes are wiped by
+  `destroyRatchetState`, but while a session is live they are ordinary memory.
+  Applications should persist a serialised ratchet state encrypted (e.g. under
+  the user key), never in the clear. This is the one deliberate departure from
+  the non-extractable-key rule, and it is inherent to a resumable ratchet.
 
 ## Not verified (require evidence before claims)
 
@@ -63,3 +76,7 @@ attacker, future quantum-capable attacker.
 - Whether browser, Tauri, and any mobile clients use identical crypto flows.
 - Whether nonce management elsewhere in the apps (outside the extracted code)
   is correct.
+- Whether `messaging` interoperates with any other Double Ratchet
+  implementation. The wire format is DIS-specific (`sv-dr-*`) and has been
+  tested only against itself — **no interop claim with Signal/libsignal is
+  made**. The algorithm is the published Double Ratchet; the encoding is not.

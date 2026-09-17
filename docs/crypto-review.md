@@ -17,7 +17,10 @@ flagged `not verified`.
 | **Per-file random key + chunk AAD** | Good | File key wrapped under content key; chunk AAD binds owner/item/file/revision/manifest-root/index/count → resists reorder, splice, cross-file reuse, truncation. |
 | **SHA-256 manifest root + per-chunk hash** | Good | Detects storage-level tampering independent of GCM tag. |
 | **ML-KEM-768 + RSA-OAEP hybrid** (sharing) | Forward-looking | Hybrid protects against "harvest now, decrypt later"; classical RSA retained for defence in depth. Versioned blob layout. _Port to DIS in phase 2._ |
-| **Non-extractable CryptoKeys** | Good | Imported keys cannot be exported from WebCrypto. |
+| **Non-extractable CryptoKeys** | Good, with one documented exception | Imported keys cannot be exported from WebCrypto — except the `messaging` ratchet key pair, which must be extractable so a session can be persisted and resumed. See R-5 in `threat-model.md`. |
+| **Double Ratchet** (ECDH P-256 + HKDF-SHA-256 + AES-256-GCM) | Sound composition | Published algorithm, no invented parts. Symmetric ratchet gives forward secrecy; DH ratchet gives post-compromise security. Root/chain/message KDF stages are domain-separated (`sv-dr-root-v1` / `sv-dr-chain-v1` / `sv-dr-msg-v1`). Wire format is DIS-specific — no interop claim with libsignal. |
+| **Derived (not random) GCM nonce** in `messaging` | Sound, and stronger here | The nonce is expanded from the message key alongside the AES key. Each message key is used exactly once by construction, so the nonce is unique by construction — strictly better than a random 96-bit IV, which carries a birthday bound. Does not apply to `aead`, which owns no such uniqueness guarantee and therefore draws a fresh random IV. |
+| **Full header bound as AAD** | Good | `sv-dr-msg-v1‖0x00‖AD‖0x00‖canonical({v,dh,pn,n})`. The header is canonicalised from a fixed field order in DIS source, not from the peer's JSON key order, so a reordered header cannot produce a differing AAD. |
 | **SecureBuffer** wiping | Best-effort | `fill(0)` + FinalizationRegistry fallback; cannot defeat GC/string immutability (residual risk R-1). |
 
 ## Compliance with the mandated crypto rules
@@ -26,14 +29,14 @@ flagged `not verified`.
 | --- | --- |
 | Audited libraries only, no invented crypto | ✔ `hash-wasm`, WebCrypto, `@noble/post-quantum` |
 | AEAD | ✔ AES-256-GCM everywhere |
-| Unique nonces | ✔ fresh random IV per call (tested) |
+| Unique nonces | ✔ `aead`/`vault`/`file`: fresh random IV per call (tested). `messaging`: nonce derived from the single-use message key, unique by construction |
 | Format versioning | ✔ prefixed envelopes, fail-closed |
 | Associated data | ✔ entry id / attachment context / chunk index |
 | Strong KDF | ✔ Argon2id, versioned params |
 | Key separation | ✔ KEK ≠ content key ≠ file key (HKDF info) |
 | Key wrapping | ✔ `usk-wrap-v2` content-key wrapping |
 | Secure randomness | ✔ WebCrypto CSPRNG, never `Math.random` |
-| Negative tests | ✔ wrong key, tampered, AAD mismatch, downgrade |
+| Negative tests | ✔ wrong key, tampered, AAD mismatch, downgrade; ratchet: forged ciphertext/header/counter, off-curve key, replay, state-intact-after-forgery |
 | Test vectors | ◐ base64/SHA-256/KDF determinism vectors present; **production golden vectors pending** (phase 1) |
 | Documented migrations | ✔ this doc + migration-plan.md |
 | No static salts | ✔ per-account random salt; HKDF zero-salt justified above |
@@ -52,6 +55,14 @@ flagged `not verified`.
   if metadata-size leakage (R-2) becomes in-scope.
 - **F-4 (verify):** confirm browser and Tauri use identical flows; no Tauri-only
   crypto in shared logic (per testing-runtime.md).
+- **F-5 (should, `messaging`):** a persisted ratchet state contains live chain
+  keys and an extractable private key. Applications must store it encrypted
+  under the user key, not in the clear — DIS cannot enforce this, so it belongs
+  in the consuming app's review checklist (R-5).
+- **F-6 (consider, `messaging`):** the ratchet currently has no bound on how
+  long a session may run without a DH ratchet step. If an application only ever
+  sends in one direction, post-compromise security never kicks in. Consider an
+  app-level policy that forces a round trip periodically.
 
 ## Not verified
 
