@@ -117,6 +117,31 @@ export {
     type TotpParams,
 } from './totp/index.js';
 
+// Messaging — Signal Double Ratchet (forward secrecy + post-compromise
+// security). A pure, serialisable state machine: the caller owns and persists
+// the state. The initial shared secret comes from a handshake (e.g. X3DH)
+// that is deliberately outside DIS.
+export {
+    generateRatchetKeyPair,
+    initSenderState,
+    initReceiverState,
+    encryptMessage,
+    decryptMessage,
+    destroyRatchetState,
+    serializeRatchetState,
+    deserializeRatchetState,
+    serializeRatchetMessage,
+    deserializeRatchetMessage,
+    RATCHET_MESSAGE_V1_PREFIX,
+    RATCHET_STATE_V1_PREFIX,
+    DEFAULT_MAX_SKIPPED_KEYS,
+    type RatchetState,
+    type RatchetMessage,
+    type RatchetHeader,
+    type RatchetDhKeyPair,
+    type SkippedMessageKey,
+} from './messaging/index.js';
+
 // Migrations (migrateEncryptedPayload via the registry)
 export {
     MigrationRegistry,

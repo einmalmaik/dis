@@ -23,6 +23,7 @@ your problem.
 | Sharing / emergency access with post-quantum forward secrecy | `generateHybridKeyPair` / `hybridWrapKey` / `hybridUnwrapKey` (the `post-quantum` module) |
 | ECDSA signatures for an audit log | `generateEcdsaP256KeyPair` / `signEcdsaP256` / `verifyEcdsaP256` (the `signing` module) |
 | TOTP for in-app authenticator or for 2FA | `generateTotpSecret` / `verifyTotpCode` / `generateTotpCode` (the `totp` module) |
+| Forward secrecy for a message stream (per-message keys, self-healing) | `initSenderState` / `encryptMessage` / `decryptMessage` (the `messaging` module) |
 
 For Singra Vault's exact composition of all of the above, see
 `docs/architecture.md` (Module boundaries) and `@msdis/shield/vault-crypto`
@@ -235,7 +236,71 @@ Singra's own 2FA enrolment uses `verifyTotpCode` with the pinned default
 (`SHA1` / 6 digits / 30 s). Imported entries use `generateTotpCode` with
 explicit per-entry options.
 
-## 8. Error handling — what can go wrong
+## 8. Message streams with forward secrecy (Double Ratchet)
+
+Everything above protects data **at rest**: recover the key and you recover
+every payload it ever sealed. The `messaging` module is for a running
+conversation, where that is not good enough. Each message gets its own key
+that is destroyed after use (forward secrecy), and every change of direction
+mixes a fresh ECDH agreement into the session, so one uncompromised round
+trip locks an attacker back out (post-compromise security).
+
+**What DIS does not do here:** the initial handshake. X3DH, key servers and
+identity verification are yours. DIS takes 32 agreed bytes and runs the
+ratchet over them.
+
+```ts
+import {
+  generateRatchetKeyPair, initSenderState, initReceiverState,
+  encryptMessage, decryptMessage,
+  serializeRatchetState, deserializeRatchetState, destroyRatchetState,
+} from '@msdis/shield/messaging';
+
+// Bob publishes a ratchet public key; both sides already agreed sharedSecret.
+const bobPair = await generateRatchetKeyPair();
+
+let alice = await initSenderState({
+  sharedSecret,                        // 32 bytes, from your handshake
+  remotePublicKey: bobPair.publicKey,
+  associatedData: utf8ToBytes('alice:bob'),  // optional session binding
+});
+let bob = await initReceiverState({ sharedSecret, dhKeyPair: bobPair });
+
+// Send. Note the shape: a NEW state comes back, the old one is untouched.
+const { nextState, message } = await encryptMessage(alice, plaintextBytes);
+await db.saveRatchetState(serializeRatchetState(nextState));
+destroyRatchetState(alice);            // ← the step that buys forward secrecy
+alice = nextState;
+
+// Receive.
+const received = await decryptMessage(bob, message);
+await db.saveRatchetState(serializeRatchetState(received.nextState));
+destroyRatchetState(bob);
+bob = received.nextState;
+```
+
+The persistence contract is the whole game:
+
+1. **Persist `nextState` before acting on the result.** If you save the old
+   state, the session desynchronises.
+2. **Destroy the state you replaced.** Holding it alive holds its chain keys
+   alive, which is exactly what the ratchet exists to prevent.
+3. **Never reuse a state for two messages.** Encrypting twice from the same
+   state produces two messages at the same chain position — the second one
+   will not decrypt.
+
+Out-of-order and late messages are handled for you: keys for skipped
+positions are retained in the state (capped at `maxSkippedKeys`, default
+1000, oldest evicted first) and removed the moment they are used, so a
+replayed message fails. A receiver cannot send until it has decrypted its
+first inbound message — `encryptMessage` raises `DisInvalidArgumentError`
+until then.
+
+Every failure — forged ciphertext, altered header, altered counter, replay —
+raises `DisDecryptionError` and leaves your input state untouched, so a
+forged message cannot wedge a live session.
+
+## 9. Error handling — what can go wrong
 
 Always wrap DIS calls in a try/catch and map to user-facing copy. The
 relevant errors are in `@msdis/shield/core`:
@@ -254,7 +319,7 @@ relevant errors are in `@msdis/shield/core`:
 The contract: **AEAD failures do not reveal cause** (no padding/AAD oracle).
 Your error UX must respect that.
 
-## 9. Branding & UI Integration
+## 10. Branding & UI Integration
 
 According to the MauntingStudios Design DNA, applications utilizing DIS for security should display the standardized `DisBadge` element to indicate cryptographic integrity to the user.
 
@@ -279,7 +344,7 @@ export default function AppLayout() {
 
 The badge should ideally link to `https://dis.mauntingstudios.de` to give users access to the public documentation and security guarantees of the library.
 
-## 10. What you should NOT do
+## 11. What you should NOT do
 
 - **Do not import `hash-wasm`, `otpauth`, or `@noble/post-quantum` directly.**
   These are pulled in transitively. Direct imports will be blocked by the
@@ -293,7 +358,7 @@ The badge should ideally link to `https://dis.mauntingstudios.de` to give users 
 - **Do not change a published envelope prefix.** Add a new version instead.
 - **Do not roll your own KDF parameters.** Use the versioned registry.
 
-## 11. Where to read more
+## 12. Where to read more
 
 - [`architecture.md`](architecture.md) — what DIS is and is not
 - [`api-design.md`](api-design.md) — the supported function surface

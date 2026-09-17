@@ -24,6 +24,7 @@ export default defineConfig({
         'signing/index': 'src/signing/index.ts',
         'totp/index': 'src/totp/index.ts',
         'migrations/index': 'src/migrations/index.ts',
+        'messaging/index': 'src/messaging/index.ts',
     },
     format: ['esm'],
     dts: true,

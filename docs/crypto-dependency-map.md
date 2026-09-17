@@ -76,3 +76,10 @@ via a thin app-local `crypto` adapter — see `migration-plan.md`).
 | AES-GCM | IV 12B, tag 128b, key 256b | `aead` |
 | Verification constant | `SINGRA_VAULT_VERIFY_V3` | app (verification hash) |
 | Hybrid (PQ) version byte | `VERSION_HYBRID_STANDARD_V2`; layout `ver‖pq_ct‖rsa_ct‖iv‖aes_ct` | `key-management` (phase 2) |
+| Ratchet message envelope | `sv-dr-msg-v1:` + JSON `{header,ciphertext}` | `messaging` |
+| Ratchet state envelope | `sv-dr-state-v1:` + JSON (binary fields base64) | `messaging` |
+| Ratchet message header tag | `sv-dr-msg-v1` (also the AAD prefix and message-key HKDF info) | `messaging` |
+| Ratchet root HKDF info | `sv-dr-root-v1` (salt = root key) | `messaging` |
+| Ratchet chain HKDF info | `sv-dr-chain-v1` (zero salt) | `messaging` |
+| Ratchet message AAD | `sv-dr-msg-v1‖0x00‖AD‖0x00‖canonical({v,dh,pn,n})` | `messaging` |
+| Ratchet DH | ECDH P-256; public raw 65B, private PKCS#8 138B | `messaging` |

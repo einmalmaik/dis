@@ -59,6 +59,8 @@ integrity ──────────┤  uses core (SHA-256)
 vault-encryption ───┤  uses aead + format-versioning
 key-management ─────┤  uses aead + kdf + random (wrap/unwrap/rotate)
 file-encryption ────┤  uses aead + kdf + random + integrity (chunked)
+messaging ──────────┤  uses aead + kdf + secure-memory + format-versioning
+                    │  (Double Ratchet; pure state machine, no storage)
 migrations ─────────┘  framework over the above
 index (SDK facade) ─── stable public surface re-exporting the above
 ```

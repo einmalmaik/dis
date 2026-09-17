@@ -156,6 +156,54 @@ migrateToHybrid(
 // ciphertext at an old version and want to refresh it in place.
 ```
 
+### Messaging — Double Ratchet (`@dis/shield/messaging`)
+
+```ts
+// Key pairs and session setup. `sharedSecret` (32 bytes) comes from a
+// handshake — X3DH or otherwise — that DIS deliberately does not implement.
+generateRatchetKeyPair(): Promise<RatchetDhKeyPair>            // ECDH P-256
+initSenderState(input: InitSenderStateInput): Promise<RatchetState>
+initReceiverState(input: InitReceiverStateInput): Promise<RatchetState>
+
+// Pure state transitions — neither call mutates or wipes its input state.
+encryptMessage(state, plaintext: Uint8Array):
+  Promise<{ nextState: RatchetState; message: RatchetMessage }>
+decryptMessage(state, message: RatchetMessage):
+  Promise<{ nextState: RatchetState; plaintext: Uint8Array }>
+
+// Persistence and lifetime.
+serializeRatchetState(state): string          // -> "sv-dr-state-v1:{…}"
+deserializeRatchetState(json: string): RatchetState
+serializeRatchetMessage(message): string      // -> "sv-dr-msg-v1:{…}"
+deserializeRatchetMessage(wire: string): RatchetMessage
+destroyRatchetState(state): void              // zeroes every secret it holds
+
+DEFAULT_MAX_SKIPPED_KEYS: 1000
+```
+
+**Format-frozen:** `sv-dr-msg-v1:`, `sv-dr-state-v1:`, and the HKDF `info`
+labels `sv-dr-root-v1`, `sv-dr-chain-v1`, `sv-dr-msg-v1`. The state records
+its DH algorithm (`ECDH-P-256`) so a future `sv-dr-state-v2` can introduce
+another curve without ambiguity.
+
+**Contracts specific to this module:**
+
+- The caller owns state lifetime. Persist `nextState`, then call
+  `destroyRatchetState` on the state it replaced — keeping the old one alive
+  keeps its chain keys alive, defeating the forward secrecy the ratchet
+  exists to provide.
+- `decryptMessage` works on a private clone and commits only after the GCM
+  tag verifies. A forged or replayed message leaves the input state
+  byte-for-byte unchanged, so it can neither advance nor wedge a session.
+- A consumed skipped message key is removed from the returned state
+  irrevocably; replaying that message afterwards raises `DisDecryptionError`.
+- `maxSkippedKeys` bounds both retained keys (oldest evicted, FIFO) and the
+  number of ratchet steps one message may force — the second half is what
+  stops a header claiming `n = 2^31` from burning CPU.
+- The receiving party has no sending chain until it has decrypted its first
+  inbound message; calling `encryptMessage` before that is
+  `DisInvalidArgumentError`.
+
 ## Design rules
 
 1. **Keys, not passwords, cross most APIs.** Only `kdf` accepts a password.
