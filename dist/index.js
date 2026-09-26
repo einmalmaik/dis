@@ -1,3 +1,4 @@
+export { createAltchaChallenge, solveAltchaChallenge, verifyAltchaSolution } from './chunk-VWOKA5EL.js';
 export { MigrationRegistry } from './chunk-FUDDBD2G.js';
 export { DEFAULT_MAX_SKIPPED_KEYS, RATCHET_MESSAGE_V1_PREFIX, RATCHET_STATE_V1_PREFIX, decryptMessage, deserializeRatchetMessage, deserializeRatchetState, destroyRatchetState, encryptMessage, generateRatchetKeyPair, initReceiverState, initSenderState, serializeRatchetMessage, serializeRatchetState } from './chunk-L3SYMJ2V.js';
 export { DEFAULT_CHUNK_SIZE, FILE_MANIFEST_V1_PREFIX, decryptAttachment, decryptChunk, encryptAttachment, encryptChunk, generateFileKeyBytes, importFileKey } from './chunk-EOXWR7DS.js';

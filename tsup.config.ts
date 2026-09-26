@@ -23,6 +23,7 @@ export default defineConfig({
         'integrity/index': 'src/integrity/index.ts',
         'signing/index': 'src/signing/index.ts',
         'totp/index': 'src/totp/index.ts',
+        'altcha/index': 'src/altcha/index.ts',
         'migrations/index': 'src/migrations/index.ts',
         'messaging/index': 'src/messaging/index.ts',
     },

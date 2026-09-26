@@ -18,6 +18,7 @@ primitives:
 | Key separation / wrapping | HKDF-SHA-256 + AES-GCM | WebCrypto |
 | Random | CSPRNG | WebCrypto `getRandomValues` |
 | Post-quantum (optional) | ML-KEM-768 hybrid | [`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum) |
+| PoW CAPTCHA | SHA-256 PoW + HMAC-SHA-256 | WebCrypto `SubtleCrypto` |
 
 ## Status
 
@@ -90,6 +91,7 @@ import { deriveRawKey } from '@msdis/shield/kdf';
 | `@msdis/shield/post-quantum` | ML-KEM-768 + RSA-4096 hybrid key wrapping (sharing / emergency access) |
 | `@msdis/shield/integrity` | SHA-256, constant-time compare, verification |
 | `@msdis/shield/messaging` | Double Ratchet: forward secrecy + post-compromise security for a message stream |
+| `@msdis/shield/altcha` | Proof-of-Work CAPTCHA challenge creation and verification |
 | `@msdis/shield/migrations` | Ordered, explicit payload migrations |
 
 ## Security

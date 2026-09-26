@@ -117,6 +117,16 @@ export {
     type TotpParams,
 } from './totp/index.js';
 
+// ALTCHA Proof-of-Work CAPTCHA
+export {
+    createAltchaChallenge,
+    verifyAltchaSolution,
+    solveAltchaChallenge,
+    type AltchaChallenge,
+    type AltchaPayload,
+    type CreateAltchaChallengeOptions,
+} from './altcha/index.js';
+
 // Messaging — Signal Double Ratchet (forward secrecy + post-compromise
 // security). A pure, serialisable state machine: the caller owns and persists
 // the state. The initial shared secret comes from a handshake (e.g. X3DH)
